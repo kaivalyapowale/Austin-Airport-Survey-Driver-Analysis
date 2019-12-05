@@ -1,5 +1,5 @@
 ---
-title: "Team 2 : Final Project Report"
+title: "Austin Airport Key Driver Analysis"
 output: html_document
 ---
 
@@ -8,7 +8,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 ## The Problem Statement
 
-We collected the survey data of passengers traveling from the Austin-Bergstrom International Airport. The data was obtained from the US Government website: data.gov.
+We used the survey data of passengers traveling from the Austin-Bergstrom International Airport. The data was obtained from the US Government website: data.gov.
 The data contained 37 features and 3501 survey responses. We intend to perform key driver analysis and understand which features affect customer's overall satisfaction and what can the airport do to improve their service to the passengers. 
 
 ## Data Cleaning
@@ -501,23 +501,4 @@ hist(survey.df$Availability.of.washrooms)
 + As we can see, the Cleanliness of the airport is great. This should be maintained.
 + All the other areas also seem to be performing well. The only low ratings are concentrated in Visa inspection and Customs checks. These are outside airport's control.
 
-So, the prime area of focus for the airport right now should be on the Speed of Baggae Delivery. This needs to be focused on to improve the overall satisfaction of the visitors.
-
-
-```{r}
-survey.plan <- survey_imputed[ which(survey_imputed$Departure.time=="Early Morning"), ]
-hist(survey.plan$Overall.satisfaction, main="Overall Satisfaction in Early Morning")
-
-survey.plan <- survey_imputed[ which(survey_imputed$Departure.time=="Morning"), ]
-hist(survey.plan$Overall.satisfaction, main="Overall Satisfaction in Morning")
-
-survey.plan <- survey_imputed[ which(survey_imputed$Departure.time=="Day"), ]
-hist(survey.plan$Overall.satisfaction, main="Overall Satisfaction in Day")
-
-survey.plan <- survey_imputed[ which(survey_imputed$Departure.time=="Evening"), ]
-hist(survey.plan$Overall.satisfaction, main="Overall Satisfaction in Evening")
-
-survey.plan <- survey_imputed[ which(survey_imputed$Departure.time=="Night"), ]
-hist(survey.plan$Overall.satisfaction, main="Overall Satisfaction in Night")
-```
-
+## So, the prime area of focus for the airport right now should be on the Speed of Baggae Delivery. This needs to be focused on to improve the overall satisfaction of the visitors.
