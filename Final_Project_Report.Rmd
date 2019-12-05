@@ -1,0 +1,523 @@
+---
+title: "Team 2 : Final Project Report"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## The Problem Statement
+
+We collected the survey data of passengers traveling from the Austin-Bergstrom International Airport. The data was obtained from the US Government website: data.gov.
+The data contained 37 features and 3501 survey responses. We intend to perform key driver analysis and understand which features affect customer's overall satisfaction and what can the airport do to improve their service to the passengers. 
+
+## Data Cleaning
+
+Our data consists of 37 features and looks like this:
+
+```{r}
+survey.df <- read.csv("~/OneDrive - Duke University/Coursework/590.21 Marketing Analytics/Project/Airport_Quarterly_Passenger_Survey.csv")
+head(survey.df)
+```
+In the Summary we noticed that the data has multiple NA values and the data needs to be cleaned. The exploratory data analysis also showed us that the date and time format of the airport was changed in 2016 and hence the "Departure.time" feature does not have the same format. 
+
+```{r}
+summary(survey.df)
+```
+We went ahead and tried two different methods in order to see the difference between the two of them and would it add a bias after imputing values for the NA's:
+
++ Omitted the rows with NA values 
++ Imputed the missing values using K-NN imputation techniques
+
+# 1. Impute Data using K-NN Imputation 
+We decided to impute data in rows which have less that 6 missing values, if a passenger has not answered more than 6 unanswered we decided to omit that data because then that would not include the true customer data and effect our model. 
+Using this, our data then reduced from 3501 to 3434 survey responses. 
+
+```{r}
+length(unique (unlist (lapply (survey.df, function (x) which(is.na(x))))))
+969/3501
+df <- vector()
+a <- vector()
+df <- as.integer(apply(survey.df, 1, function(x) sum(is.na(x))))
+for(i in 1:37){
+  r <- sum(df==i)
+  a[i] <- r
+}
+print(a)
+```
++ This shows the count of NA's based on its position in a row. 
+
+```{r}
+length(unique (unlist (lapply (survey.df, function (x) which(is.na(x))))))
+```
+We have 969 rows with NA values 
+
+```{r}
+survey.df$missing <- as.integer(apply(survey.df, 1, function(x) sum(is.na(x))))
+survey_temp = survey.df[!survey.df$missing > 5, 1:37]
+dim(survey_temp)
+```
++ Imputing k-NN with k= 5
+
+```{r}
+library(VIM)
+impu <- kNN(survey_temp, variable = colnames(survey_temp), metric = NULL, k = 5)
+```
+
+```{r include=FALSE}
+sum(is.na(impu[,1:37]))
+head(impu[,1:37],-20)
+survey_imputed <- impu[,1:37]
+sum(is.na(survey_imputed$Overall.satisfaction))
+
+for(i in 4:37){
+   print(colnames(survey_imputed)[i])
+   print(table(survey_imputed[,i]))
+   plot(table(survey_imputed[,i]), type='h', ylab=colnames(survey_imputed)[i])
+}
+```
+
+```{r}
+dim(survey_imputed)
+```
+This is the dimensions of the dataset after the imputation. We deleted 67 rows and imputed the rest. 
+
+
+# 2. Omitting data
+After omiting the data the dimensions of the dataset are mentioned below. 
+```{r}
+survey_omit <- na.omit(survey.df)
+survey_omit$missing <- NULL
+dim(survey_omit)
+```
+
+We have used both the datasets to run various tests to conduct key driver analysis.
+
+```{r}
+levels(survey.df$Departure.time)
+```
+
+
+The second step in cleaning data was to format the Departure.time feature. Since there are two kinds of formats in the survey data (both 12 hour and 24 hour) we decided to create bins of the time of the day using regular expressions.
+
+We binned the "Departure.time" into Early Morning, Morning, Day, Evening and Night.
++ 01.00 - 07.59 is Early Morning
++ 08.00 - 11.59 is Morning
++ 12.00 - 16.59 is Day
++ 17.00 - 19.59 is Evening
++ 20.00 - 00.59 is Night
+
+```{r}
+library(stringr)
+survey_imputed$Departure.time <- as.character(survey_imputed$Departure.time)
+for (i in 1:nrow(survey_imputed)) {
+if (str_detect(survey_imputed$Departure.time[i], regex(".am", ignore_case = TRUE)))
+  {
+    if(str_detect(survey_imputed$Departure.time[i], regex("^12:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Night"}
+    else if(str_detect(survey_imputed$Departure.time[i], regex("^1:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Early Morning"}
+    else if(str_detect(survey_imputed$Departure.time[i], regex("^2:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Early Morning"}
+    else if(str_detect(survey_imputed$Departure.time[i], regex("^3:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Early Morning"}
+    else if(str_detect(survey_imputed$Departure.time[i], regex("^4:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Early Morning"}
+    else if(str_detect(survey_imputed$Departure.time[i], regex("^5:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Early Morning"}
+    else if(str_detect(survey_imputed$Departure.time[i], regex("^6:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Early Morning"}
+    else if(str_detect(survey_imputed$Departure.time[i], regex("^7:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Early Morning"}
+    else if(str_detect(survey_imputed$Departure.time[i], regex("^8:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Morning"}
+    else if(str_detect(survey_imputed$Departure.time[i], regex("^9:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Morning"}
+    else if(str_detect(survey_imputed$Departure.time[i], regex("^10:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Morning"}
+    else if(str_detect(survey_imputed$Departure.time[i], regex("^11:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Morning"}
+    else {survey_imputed$Departure.time[i] <- NA}
+  } else if (str_detect(survey_imputed$Departure.time[i], regex(".pm", ignore_case = TRUE)))
+  {
+  if(str_detect(survey_imputed$Departure.time[i], regex("^12:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Day"}
+  else if(str_detect(survey_imputed$Departure.time[i], regex("^1:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Day"}
+  else if(str_detect(survey_imputed$Departure.time[i], regex("^2:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Day"}
+  else if(str_detect(survey_imputed$Departure.time[i], regex("^3:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Day"}
+  else if(str_detect(survey_imputed$Departure.time[i], regex("^4:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Day"}
+  else if(str_detect(survey_imputed$Departure.time[i], regex("^5:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Evening"}
+  else if(str_detect(survey_imputed$Departure.time[i], regex("^6:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Evening"}
+  else if(str_detect(survey_imputed$Departure.time[i], regex("^7:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Evening"}
+  else if(str_detect(survey_imputed$Departure.time[i], regex("^8:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Night"}
+  else if(str_detect(survey_imputed$Departure.time[i], regex("^9:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Night"}
+  else if(str_detect(survey_imputed$Departure.time[i], regex("^10:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Night"}
+  else if(str_detect(survey_imputed$Departure.time[i], regex("^11:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Night"}
+  } else if (str_detect(survey_imputed$Departure.time[i], regex("^00:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Night"
+  } else if (str_detect(survey_imputed$Departure.time[i], regex("^1:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Early Morning"
+  } else if (str_detect(survey_imputed$Departure.time[i], regex("^2:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Early Morning"
+  } else if (str_detect(survey_imputed$Departure.time[i], regex("^3:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Early Morning"
+  } else if (str_detect(survey_imputed$Departure.time[i], regex("^4:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Early Morning"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^5:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Early Morning"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^6:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Early Morning"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^7:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Early Morning"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^8:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Morning"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^9:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Morning"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^10:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Morning"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^11:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Morning"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^12:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Day"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^13:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Day"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^14:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Day"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^15:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Day"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^16:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Day"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^17:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Evening"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^18:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Evening"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^19:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Evening"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^20:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Night"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^21:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Night"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^22:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Night"
+  }else if (str_detect(survey_imputed$Departure.time[i], regex("^23:", ignore_case = TRUE))) {survey_imputed$Departure.time[i] <- "Night"
+  }else {survey_imputed$Departure.time[i] <- NA}
+}
+```
+
++ For omitted data
+
+```{r}
+survey_omit$Departure.time.char <- as.character(survey_omit$Departure.time)
+survey_omit$Departure.time.bin <- survey_omit$Departure.time.char
+for (i in 1:nrow(survey_omit)) {
+if (str_detect(survey_omit$Departure.time.char[i], regex(".am", ignore_case = TRUE)))
+  {
+    if(str_detect(survey_omit$Departure.time.char[i], regex("^12:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Night"}
+    else if(str_detect(survey_omit$Departure.time.char[i], regex("^1:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Early Morning"}
+    else if(str_detect(survey_omit$Departure.time.char[i], regex("^2:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Early Morning"}
+    else if(str_detect(survey_omit$Departure.time.char[i], regex("^3:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Early Morning"}
+    else if(str_detect(survey_omit$Departure.time.char[i], regex("^4:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Early Morning"}
+    else if(str_detect(survey_omit$Departure.time.char[i], regex("^5:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Early Morning"}
+    else if(str_detect(survey_omit$Departure.time.char[i], regex("^6:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Early Morning"}
+    else if(str_detect(survey_omit$Departure.time.char[i], regex("^7:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Early Morning"}
+    else if(str_detect(survey_omit$Departure.time.char[i], regex("^8:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Morning"}
+    else if(str_detect(survey_omit$Departure.time.char[i], regex("^9:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Morning"}
+    else if(str_detect(survey_omit$Departure.time.char[i], regex("^10:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Morning"}
+    else if(str_detect(survey_omit$Departure.time.char[i], regex("^11:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Morning"}
+    else {survey_omit$Departure.time.bin[i] <- NA}
+  } else if (str_detect(survey_omit$Departure.time.char[i], regex(".pm", ignore_case = TRUE)))
+  {
+  if(str_detect(survey_omit$Departure.time.char[i], regex("^12:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Day"}
+  else if(str_detect(survey_omit$Departure.time.char[i], regex("^1:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Day"}
+  else if(str_detect(survey_omit$Departure.time.char[i], regex("^2:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Day"}
+  else if(str_detect(survey_omit$Departure.time.char[i], regex("^3:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Day"}
+  else if(str_detect(survey_omit$Departure.time.char[i], regex("^4:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Day"}
+  else if(str_detect(survey_omit$Departure.time.char[i], regex("^5:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Evening"}
+  else if(str_detect(survey_omit$Departure.time.char[i], regex("^6:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Evening"}
+  else if(str_detect(survey_omit$Departure.time.char[i], regex("^7:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Evening"}
+  else if(str_detect(survey_omit$Departure.time.char[i], regex("^8:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Night"}
+  else if(str_detect(survey_omit$Departure.time.char[i], regex("^9:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Night"}
+  else if(str_detect(survey_omit$Departure.time.char[i], regex("^10:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Night"}
+  else if(str_detect(survey_omit$Departure.time.char[i], regex("^11:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Night"}
+  } else if (str_detect(survey_omit$Departure.time.char[i], regex("^00:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Night"
+  } else if (str_detect(survey_omit$Departure.time.char[i], regex("^1:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Early Morning"
+  } else if (str_detect(survey_omit$Departure.time.char[i], regex("^2:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Early Morning"
+  } else if (str_detect(survey_omit$Departure.time.char[i], regex("^3:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Early Morning"
+  } else if (str_detect(survey_omit$Departure.time.char[i], regex("^4:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Early Morning"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^5:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Early Morning"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^6:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Early Morning"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^7:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Early Morning"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^8:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Morning"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^9:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Morning"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^10:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Morning"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^11:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Morning"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^12:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Day"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^13:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Day"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^14:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Day"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^15:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Day"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^16:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Day"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^17:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Evening"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^18:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Evening"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^19:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Evening"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^20:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Night"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^21:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Night"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^22:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Night"
+  }else if (str_detect(survey_omit$Departure.time.char[i], regex("^23:", ignore_case = TRUE))) {survey_omit$Departure.time.bin[i] <- "Night"
+  }else {survey_omit$Departure.time.bin[i] <- NA}
+}
+
+survey_omit$Departure.time <- survey_omit$Departure.time.bin
+survey_omit$Departure.time.char <- NULL
+survey_omit$Departure.time.bin <- NULL
+survey_omit$Departure.time <- as.factor(survey_omit$Departure.time)
+```
+
+```{r}
+head(survey_imputed)
+head(survey_omit)
+```
+
+
+
+## Exploratory Data Analysis
+
+The correlation plot for both the datasets were similar and looked like the one given below. 
+```{r}
+library(corrplot)
+corrplot(cor(survey_imputed[,4:36]), method = 'color', tl.cex = 0.3) #Imputed
+corrplot(cor(survey_omit[,4:36]), method = "color", tl.cex = 0.3) #Omitted
+```
+
+
+Checking our target variable
+
+```{r}
+summary(as.factor(survey_imputed$Overall.satisfaction))
+summary(as.factor(survey_omit$Overall.satisfaction))
+(survey_omit[(survey_omit$Overall.satisfaction == 0),])
+```
+
+As we can see the data is skewed towards zero. While further investigating the survey responses which had overall satisfaction "0", we came across many instaces where the respondents had given satisfaction ratings as "4" and "5" to individual services. This could mean multiple things, first being the respondents didn't fill in the overall satisfaction. Second being the overall satisfaction being actaully "0".We are assuming that the overall satisfaction filled by the respondents is "0" and will futhre analyze this data based on this assumption.
+
+```{r}
+df2 <- na.omit(survey.df)
+library(stringr)
+df2$Departure.time.char <- as.character(df2$Departure.time)
+for (i in 1:nrow(df2)) {
+  if (str_detect(df2$Departure.time.char[i], regex(".am", ignore_case = TRUE)))
+  {
+    df2$Quarter.new[i] <- as.character(df2$Quarter[i])
+  } else if (str_detect(df2$Departure.time.char[i], regex(".pm", ignore_case = TRUE)))
+  {
+    df2$Quarter.new[i] <- as.character(df2$Quarter[i])
+  } else {df2$Quarter.new <- NA}
+}
+df2$Quarter.new <- as.factor(df2$Quarter.new)
+summary(df2$Quarter.new)
+```
+
+From the following result we can say that there was a change in time format, after the 3rd quater of 2016 while recording the responses 
+
+Plotting Distribution of each services present at the Airport
+
+```{r}
+for (i in 4:36){
+  hist(survey_omit[,i], xlab = "Satisfaction Levels", main = names(survey_omit[i]))
+}
+```
+
+
+```{r}
+plot(aggregate(survey_omit$Overall.satisfaction ~ survey_omit$Quarter, data=survey_omit, mean))
+plot(aggregate(survey_imputed$Overall.satisfaction ~ survey_imputed$Quarter, data=survey_imputed, mean)) 
+```
+The Overall satisfaction aggregated by Quarters shows that for some Qs, the overall sat is 0 while for others it is almost 5.
+2Q17, 1Q17, 4Q16, and 1Q15 have average overall satisfaction as 5
+while other quarters have average overall satisfaction of 0
+
+This shows that the overall satisfaction is highly skewed when it comes to Quarters. This could be because of seasonal repairs or holiday seasons. But we do not have any data to support these claims.
+One high possibility for this could also be due to system defaulting unfilled data to 0s. But the occurrence of NAs in these Quarters hints otherwise. So, due to the inconclusive nature of this data, we decided to drop this as a predictor for the Overall Satisafaction.
+Including this as a predictor will cause the model to levy high and undue importance to this feature.
+
+
+## PCA
+
+```{r include=FALSE}
+head(survey_imputed)
+survey_imputed$Departure.time <- as.factor(survey_imputed$Departure.time)
+
+sur_sc <- data.frame(scale(survey_imputed[,4:36], center = TRUE, scale = TRUE))
+
+sur_sc$Overall.satisfaction = survey_imputed$Overall.satisfaction
+print("MEAN")
+apply(sur_sc[1:33],2,mean)
+print("STANDARD DEVIATION")
+apply(sur_sc[1:33],2,sd)
+
+my.pca <- prcomp(sur_sc[,1:33])
+summary(my.pca)
+
+library(factoextra)
+
+sur.agg <- aggregate(sur_sc[, 1:33], list(sur_sc$Overall.satisfaction), mean)
+sur.agg
+sur.mean.sc <- data.frame(scale(sur.agg[,2:33], center = TRUE, scale = TRUE))
+print(sur.mean.sc)
+mean.pca <- prcomp(sur.mean.sc)
+summary(mean.pca)
+fviz_eig(mean.pca, type=c("barplot", "lines"))
+screeplot(mean.pca, type='line')
+biplot(mean.pca, col = 'purple', cex=0.5, expand=1)
+
+```
+
+```{r}
+summary(mean.pca)
+fviz_eig(mean.pca, type=c("barplot", "lines"))
+biplot(mean.pca, col = 'purple', cex=0.5, expand=1)
+```
+
+The Scree plot shows 2 components are enough to explain 87% variance of the data but since the features are highly associated we want to dig further in order to asses the real drivers impacting the Overall Satisfaction and provide recommendation
+
+
+## Modeling
+
+We tired 3 methods of understanding what impacts the overall satisfactions of the passengers
++ Linear Modeling
++ Relative Importance
++ Random Forest for feature importance
+
+All these show us the same kind of results and hence make us sure about our recommendations. 
+
+# Linear Modeling using imputed data
+
+```{r}
+set.seed(27705)
+drop <- c("Date.recorded")
+survey_without_date <- survey_imputed[,!(names(survey_imputed) %in% drop)]
+survey_without_date[3:36]<-data.frame(scale(survey_without_date[3:36]))
+model <- lm(formula= Overall.satisfaction~0+. , data=survey_without_date[3:36])
+#head(survey_without_date[3:36])
+summary(model)
+```
+
+# Relative Importance using omitted data
+
+Relative importance the percentage of importnace of the predictors on the target variable.
+
+To find the relative importance of various predictors in the Overall Satisfaction, we need coefficents for the predictors towards the dependent variable i.e. Overall Satisfaction. The coefficients can be sourced from fitting models through a regression. We are using a linear model to obain these coefficients for all variables other than Quarter and Date Recorded, for the reasons mentioned before.
+
+To get relative importance, we need to provide the intercept too. Hence, we have not eliminated the intercept from our model.
+
+
+```{r}
+set.seed(27705)
+model1 <- lm(Overall.satisfaction~.-Date.recorded-Quarter, data=survey_omit)
+summary(model1)
+```
+
+From the model summary, we see that not all predictors have statistically significant relationship in predicting the Overall Satisfaction. Hence, we may not need to use their coefficents to get their relative importance.We train another linear model with the predictors that have statistically significant relation in predicting the Overall Satisfaction. 
+We are not yet looking at the coefficients to eliminate or choose the predictors for this model. Even if their coefficients are lower, that will be reflected in the realtive importance.
+
+The predictors we chose for this model are: Departure.time, Walking.distance.inside.terminal, Ease.of.making.connections, Business.executive.lounges, Comfort.of.waiting.gate.areas, Cleanliness.of.airport.terminal, Ambience.of.airport, Arrivals.passport.and.visa.inspection, Speed.of.baggage.delivery, Customs.inspection
+
+```{r}
+fmla <- as.formula("Overall.satisfaction~Departure.time+Walking.distance.inside.terminal+Ease.of.making.connections+Business.executive.lounges+Comfort.of.waiting.gate.areas+Cleanliness.of.airport.terminal+Ambience.of.airport+Arrivals.passport.and.visa.inspection+Speed.of.baggage.delivery+Customs.inspection")
+set.seed(27705)
+model2 <- lm(formula=fmla, data=survey_omit)
+summary(model2)
+
+```
+
+We have fit this model with the predictors. As the results show, this model explains almost 91% of the variance of Overall Satisfaction. We can use this limited number of predictors and their coefficients to get the relative importance towards Overall sat.
+
+To get the relative importance, we have used The R package, relaimpo. Ulrike Grömping, who maintains the CRAN Task View for Design of Experiments, has written an R package called relaimpo.
+
+"The R package, relaimpo, implements several reasonable procedures from the statistical literature to assign something that looks like a percent contribution to each correlated predictor."
+source: www.r-bloggers.com
+
+calc.relimp() calculates the realtive importance metrics for the linear model. We are using the method lmg which gives us sequential sum of R-squared partitioned by averaging over orders. This is another version of the metric Shapley Value Regression.
+
+```{r}
+library(relaimpo)
+rel.imp <- calc.relimp(model2, type = c("lmg"), rela = TRUE)
+rel.imp
+rel.imp$lmg *100
+rel.imp$lmg.rank
+```
+
+Proportion of variance explained by model: 90.84%
+
+As we can see, the % importance is given by the lmg method as :
+
+Departure.time                        0.528% 
+Walking.distance.inside.terminal      0.363%
+Ease.of.making.connections            0.663%
+Business.executive.lounges            0.095%
+Comfort.of.waiting.gate.areas         0.479% 
+Cleanliness.of.airport.terminal       0.734% 
+Ambience.of.airport                   1.143% 
+Arrivals.passport.and.visa.inspection 66.814%
+Speed.of.baggage.delivery             17.331%
+Customs.inspection                    11.844%
+
+# Random Forest Model 
+
+Since the relationship between the drivers and Overall Satisfaction is linear and the responses are highly associated, we considered a more complex model, Random forest.
+
+Preparing data for Random Forest Model
+```{r}
+for (i in 4:37) 
+  {
+  survey_omit[,i] <- as.factor(survey_omit[,i])
+  survey_omit[,i] <- as.ordered(survey_omit[,i])
+}
+survey_omit$Quarter <- NULL
+survey_omit$Date.recorded <- NULL
+```
+
+Model 
+
+```{r}
+set.seed(27705)
+library(randomForest)
+rf <- randomForest(Overall.satisfaction ~. , data=survey_omit, importance = TRUE)
+rf$importance
+```
+
+In the model, the Mean Decrease Accuracy and Mean Decrease Gini explain the overall coefficients and the relative importance. This can be better explained by using the measure_importance() function in the randomForestExplainer library.
+randomForestExplainer contains a set of tools to help explain the most important variables in a ranfom forest.
+
+```{r}
+library(randomForestExplainer)
+importance_rf <- measure_importance(rf)
+```
+
+```{r}
+min_depth_frame <- min_depth_distribution(rf)
+save(min_depth_frame, file = "min_depth_frame.rda")
+load("min_depth_frame.rda")
+head(min_depth_frame, n = 10)
+```
+
+```{r}
+plot_min_depth_distribution(min_depth_frame)
+plot_min_depth_distribution(min_depth_frame, mean_sample = "relevant_trees", k = 15)
+```
+
+```{r}
+importance_rf
+```
+
+This shows the most important variables and their p-values. We can get the top 10 variables using the important_variables() function.
+
+```{r}
+(vars <- important_variables(importance_rf, k = 10, measures = c("mean_min_depth", "no_of_trees")))
+```
+
+We have the top 10 features which impact the Overall Satisfaction for the customers.
+This is based on the min depth of the trees and the occurence of the varibales in maximum number of trees.
+This is a very robust model to get the most important variables.
+
+```{r}
+hist(survey.df$Arrivals.passport.and.visa.inspection, main="Arrivals Passport & Visa Inspection")
+hist(survey.df$Speed.of.baggage.delivery)
+hist(survey.df$Ambience.of.airport)
+hist(survey.df$Cleanliness.of.airport.terminal)
+hist(survey.df$Comfort.of.waiting.gate.areas)
+hist(survey.df$Customs.inspection)
+hist(survey.df$Cleanliness.of.washrooms)
+hist(survey.df$Wait.time.of.security.inspection)
+hist(survey.df$Availability.of.washrooms)
+```
+
++ Arrivals Passport & Visa Inspection is an area that could use improvement. We can see that the number of 0s are exceedingly high but on the other end even 4s & 5s have a high occurrence.
++ Speed of baggage delivery is highly underperforming and it is under the Airport Authority's control, unlike Visa inspection. SO this should be the highest priority for the airport.
++ As we can see, the ambience of the airport is great. This could be improved or maintained.
++ As we can see, the Cleanliness of the airport is great. This should be maintained.
++ All the other areas also seem to be performing well. The only low ratings are concentrated in Visa inspection and Customs checks. These are outside airport's control.
+
+So, the prime area of focus for the airport right now should be on the Speed of Baggae Delivery. This needs to be focused on to improve the overall satisfaction of the visitors.
+
+
+```{r}
+survey.plan <- survey_imputed[ which(survey_imputed$Departure.time=="Early Morning"), ]
+hist(survey.plan$Overall.satisfaction, main="Overall Satisfaction in Early Morning")
+
+survey.plan <- survey_imputed[ which(survey_imputed$Departure.time=="Morning"), ]
+hist(survey.plan$Overall.satisfaction, main="Overall Satisfaction in Morning")
+
+survey.plan <- survey_imputed[ which(survey_imputed$Departure.time=="Day"), ]
+hist(survey.plan$Overall.satisfaction, main="Overall Satisfaction in Day")
+
+survey.plan <- survey_imputed[ which(survey_imputed$Departure.time=="Evening"), ]
+hist(survey.plan$Overall.satisfaction, main="Overall Satisfaction in Evening")
+
+survey.plan <- survey_imputed[ which(survey_imputed$Departure.time=="Night"), ]
+hist(survey.plan$Overall.satisfaction, main="Overall Satisfaction in Night")
+```
+
